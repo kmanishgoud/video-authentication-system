@@ -36,13 +36,13 @@ function CameraCapture() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Load any existing queued hashes when component mounts
     loadQueuedHashes();
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Start camera
@@ -147,7 +147,7 @@ function CameraCapture() {
 
   // Load queued hashes from IndexedDB
   const loadQueuedHashes = async () => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const request = indexedDB.open('VideoHashDB', 1);
 
       request.onupgradeneeded = (event) => {
@@ -161,25 +161,42 @@ function CameraCapture() {
         const db = event.target.result;
         
         if (!db.objectStoreNames.contains('pendingHashes')) {
+          console.log('📦 No pending hashes store yet');
+          setQueuedHashes([]);
+          db.close();
           resolve([]);
           return;
         }
         
-        const transaction = db.transaction(['pendingHashes'], 'readonly');
-        const store = transaction.objectStore('pendingHashes');
-        const getAllRequest = store.getAll();
+        try {
+          const transaction = db.transaction(['pendingHashes'], 'readonly');
+          const store = transaction.objectStore('pendingHashes');
+          const getAllRequest = store.getAll();
 
-        getAllRequest.onsuccess = () => {
-          const hashes = getAllRequest.result;
-          setQueuedHashes(hashes);
-          console.log(`📦 Loaded ${hashes.length} queued hashes from storage`);
-          resolve(hashes);
-        };
+          getAllRequest.onsuccess = () => {
+            const hashes = getAllRequest.result || [];
+            setQueuedHashes(hashes);
+            console.log(`📦 Loaded ${hashes.length} queued hashes from storage`);
+            db.close();
+            resolve(hashes);
+          };
 
-        getAllRequest.onerror = () => reject(getAllRequest.error);
+          getAllRequest.onerror = () => {
+            console.error('Error loading hashes:', getAllRequest.error);
+            db.close();
+            resolve([]);
+          };
+        } catch (err) {
+          console.error('Transaction error:', err);
+          db.close();
+          resolve([]);
+        }
       };
 
-      request.onerror = () => resolve([]);
+      request.onerror = () => {
+        console.error('IndexedDB error:', request.error);
+        resolve([]);
+      };
     });
   };
 
@@ -204,37 +221,40 @@ function CameraCapture() {
 
   // Sync queued hashes to database
   const syncQueuedHashes = async () => {
-    const hashes = await loadQueuedHashes();
-    
-    if (hashes.length === 0) {
-      console.log('No queued hashes to sync');
-      return;
-    }
-
-    console.log(`📤 Syncing ${hashes.length} queued hashes...`);
-    let syncedCount = 0;
-    
-    for (const hashData of hashes) {
-      const success = await uploadHashToDatabase(
-        hashData.hash,
-        hashData.chunk_index,
-        hashData.session_id,
-        true // Skip saving to IndexedDB during sync
-      );
-
-      if (success) {
-        await removeHashFromIndexedDB(hashData.id);
-        syncedCount++;
+    try {
+      const hashes = await loadQueuedHashes();
+      
+      if (hashes.length === 0) {
+        console.log('No queued hashes to sync');
+        return;
       }
-    }
 
-    console.log(`✅ Synced ${syncedCount} of ${hashes.length} hashes`);
-    await loadQueuedHashes(); // Refresh the queue
+      console.log(`📤 Syncing ${hashes.length} queued hashes...`);
+      let syncedCount = 0;
+      
+      for (const hashData of hashes) {
+        const success = await uploadHashToDatabase(
+          hashData.hash,
+          hashData.chunk_index,
+          hashData.session_id,
+          true
+        );
+
+        if (success && hashData.id) {
+          await removeHashFromIndexedDB(hashData.id);
+          syncedCount++;
+        }
+      }
+
+      console.log(`✅ Synced ${syncedCount} of ${hashes.length} hashes`);
+      await loadQueuedHashes();
+    } catch (err) {
+      console.error('Sync error:', err);
+    }
   };
 
   // Upload hash to database (with offline fallback)
   const uploadHashToDatabase = async (hash, chunkIndex, sessionId, skipQueue = false) => {
-    // Check if online
     if (!navigator.onLine && !skipQueue) {
       console.log(`📡 Offline - queuing chunk ${chunkIndex}`);
       await saveHashToIndexedDB(hash, chunkIndex, sessionId);
@@ -243,7 +263,7 @@ function CameraCapture() {
     }
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('video_hashes')
         .insert([
           {
@@ -262,7 +282,6 @@ function CameraCapture() {
     } catch (err) {
       console.error(`❌ Failed to upload chunk ${chunkIndex}:`, err);
       
-      // Save to IndexedDB as fallback (only if not already syncing)
       if (!skipQueue) {
         console.log(`💾 Saving chunk ${chunkIndex} to local queue`);
         await saveHashToIndexedDB(hash, chunkIndex, sessionId);
@@ -286,7 +305,6 @@ function CameraCapture() {
       setUploadedChunks(0);
       setChunkHashes([]);
       
-      // Generate new session ID for this recording
       const newSessionId = crypto.randomUUID();
       setSessionId(newSessionId);
       console.log('📝 New session ID:', newSessionId);
@@ -297,25 +315,20 @@ function CameraCapture() {
 
       let chunkIndex = 0;
 
-      // Process each chunk as it arrives
       mediaRecorder.ondataavailable = async (event) => {
         if (event.data && event.data.size > 0) {
           const currentChunkIndex = chunkIndex++;
           console.log(`📦 Chunk ${currentChunkIndex} received:`, event.data.size, 'bytes');
           
-          // Store chunk for playback
           setRecordedChunks(prev => [...prev, event.data]);
           
-          // Generate hash
           try {
             console.log(`🔐 Generating hash for chunk ${currentChunkIndex}...`);
             const hash = await generateHash(event.data);
             console.log(`🔐 Hash generated for chunk ${currentChunkIndex}:`, hash.substring(0, 16) + '...');
             
-            // Store hash in state
             setChunkHashes(prev => [...prev, { index: currentChunkIndex, hash }]);
             
-            // Upload to database
             console.log(`📤 Uploading chunk ${currentChunkIndex} to database...`);
             await uploadHashToDatabase(hash, currentChunkIndex, newSessionId);
             
@@ -331,7 +344,6 @@ function CameraCapture() {
         console.log(`📊 Total chunks: ${chunkIndex}`);
       };
 
-      // Start recording with 5-second chunks
       mediaRecorder.start(5000);
       setIsRecording(true);
       console.log('🔴 Recording started (5-second chunks)');
@@ -381,7 +393,6 @@ function CameraCapture() {
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <h1>Real-Time Video Authentication</h1>
       
-      {/* Live Camera Preview */}
       <div style={{ 
         marginBottom: '20px', 
         backgroundColor: '#000', 
@@ -398,7 +409,6 @@ function CameraCapture() {
         />
       </div>
 
-      {/* Error Message */}
       {error && (
         <div style={{ 
           padding: '10px', 
@@ -411,7 +421,6 @@ function CameraCapture() {
         </div>
       )}
 
-      {/* Status Info */}
       <div style={{ 
         padding: '10px', 
         backgroundColor: '#e3f2fd', 
@@ -439,7 +448,6 @@ function CameraCapture() {
         )}
       </div>
 
-      {/* Control Buttons */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <button
           onClick={startCamera}
@@ -506,7 +514,6 @@ function CameraCapture() {
         </button>
       </div>
 
-      {/* Manual Sync Button */}
       {queuedHashes.length > 0 && isOnline && !isRecording && (
         <div style={{ 
           marginBottom: '20px',
@@ -542,7 +549,6 @@ function CameraCapture() {
         </div>
       )}
 
-      {/* Recording Status */}
       {isRecording && (
         <div style={{
           padding: '10px',
@@ -559,7 +565,6 @@ function CameraCapture() {
         </div>
       )}
 
-      {/* Chunk Hashes Display */}
       {chunkHashes.length > 0 && (
         <div style={{ marginTop: '20px', marginBottom: '20px' }}>
           <h3>Generated Hashes:</h3>
@@ -598,7 +603,6 @@ function CameraCapture() {
         </div>
       )}
 
-      {/* View and Download Buttons */}
       {recordedChunks.length > 0 && !isRecording && (
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
           <button
@@ -635,7 +639,6 @@ function CameraCapture() {
         </div>
       )}
 
-      {/* Playback Recorded Video */}
       {recordedVideoUrl && (
         <div style={{ marginTop: '20px' }}>
           <h3>Recorded Video:</h3>

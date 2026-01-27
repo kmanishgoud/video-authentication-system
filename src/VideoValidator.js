@@ -23,7 +23,6 @@ function VideoValidator() {
     }
   };
 
-  // Generate SHA-256 hash from blob
   const generateHash = async (blob) => {
     const arrayBuffer = await blob.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
@@ -34,12 +33,10 @@ function VideoValidator() {
     return hashHex;
   };
 
-  // Process uploaded video into 5-second chunks
   const processVideoIntoChunks = async (videoFile) => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
       
       video.preload = 'metadata';
       video.src = URL.createObjectURL(videoFile);
@@ -78,17 +75,14 @@ function VideoValidator() {
             const endTime = Math.min((i + 1) * chunkDuration, duration);
             const chunkLength = endTime - startTime;
             
-            // Seek to start of chunk
             video.currentTime = startTime;
             await new Promise(resolve => {
               video.onseeked = resolve;
             });
             
-            // Start recording and play
             mediaRecorder.start();
             video.play();
             
-            // Record for chunk duration
             await new Promise(resolve => {
               setTimeout(resolve, chunkLength * 1000);
             });
@@ -97,7 +91,6 @@ function VideoValidator() {
             mediaRecorder.stop();
             await chunkPromise;
             
-            // Reset for next chunk
             mediaRecorder.ondataavailable = (event) => {
               if (event.data.size > 0) {
                 chunks.push(event.data);
@@ -114,7 +107,7 @@ function VideoValidator() {
       };
 
       video.onerror = () => {
-        reject(new Error('Failed to load video'));
+        reject(new Error('Failed to load video file'));
       };
     });
   };
@@ -131,12 +124,10 @@ function VideoValidator() {
     setProgress('Starting validation...');
 
     try {
-      // Step 1: Process video into chunks
       setProgress('Splitting video into 5-second chunks...');
       const chunks = await processVideoIntoChunks(file);
       console.log(`📦 Created ${chunks.length} chunks from uploaded video`);
 
-      // Step 2: Generate hashes for each chunk
       setProgress('Generating hashes...');
       const uploadHashes = [];
       
@@ -147,7 +138,6 @@ function VideoValidator() {
         console.log(`🔐 Chunk ${i} hash:`, hash.substring(0, 16) + '...');
       }
 
-      // Step 3: Fetch hashes from database
       setProgress('Fetching database records...');
       const { data: dbHashes, error: dbError } = await supabase
         .from('video_hashes')
@@ -167,7 +157,6 @@ function VideoValidator() {
         return;
       }
 
-      // Step 4: Compare hashes
       setProgress('Comparing hashes...');
       let matchedChunks = 0;
       const comparison = [];
@@ -189,7 +178,6 @@ function VideoValidator() {
 
       const matchPercentage = (matchedChunks / uploadHashes.length) * 100;
 
-      // Step 5: Determine verdict
       let verdict, message;
       
       if (matchPercentage >= 80 && matchedChunks === uploadHashes.length) {
@@ -238,7 +226,6 @@ function VideoValidator() {
         Verify video authenticity for insurance claims and legal evidence
       </p>
 
-      {/* Input Section */}
       <div style={{ 
         backgroundColor: '#f9f9f9', 
         padding: '20px', 
@@ -307,7 +294,6 @@ function VideoValidator() {
         </button>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div style={{
           padding: '15px',
@@ -321,7 +307,6 @@ function VideoValidator() {
         </div>
       )}
 
-      {/* Progress */}
       {isProcessing && (
         <div style={{
           padding: '15px',
@@ -349,7 +334,6 @@ function VideoValidator() {
         </div>
       )}
 
-      {/* Result */}
       {result && (
         <div style={{
           padding: '20px',
@@ -408,7 +392,6 @@ function VideoValidator() {
             </div>
           </div>
 
-          {/* Detailed Comparison */}
           {result.comparison && result.comparison.length > 0 && (
             <div style={{ marginTop: '20px' }}>
               <h3 style={{ marginBottom: '10px' }}>Chunk Comparison:</h3>
