@@ -292,67 +292,85 @@ function CameraCapture() {
   };
 
   // Start recording
-  const startRecording = () => {
-    if (!streamRef.current) {
-      setError('Please start camera first');
-      return;
+const startRecording = () => {
+  if (!streamRef.current) {
+    setError('Please start camera first');
+    return;
+  }
+
+  try {
+    setError('');
+    setRecordedChunks([]);
+    setRecordedVideoUrl('');
+    setUploadedChunks(0);
+    setChunkHashes([]);
+    
+    const newSessionId = crypto.randomUUID();
+    setSessionId(newSessionId);
+    console.log('📝 New session ID:', newSessionId);
+
+    // Try different mimeTypes until we find one that works
+    let options;
+    const mimeTypes = [
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp8',
+      'video/webm;codecs=vp9',
+      'video/webm',
+      'video/mp4',
+      '' // Let browser choose
+    ];
+
+    for (const mimeType of mimeTypes) {
+      if (mimeType === '' || MediaRecorder.isTypeSupported(mimeType)) {
+        options = mimeType ? { mimeType } : {};
+        console.log('✅ Using mimeType:', mimeType || 'browser default');
+        break;
+      }
     }
 
-    try {
-      setError('');
-      setRecordedChunks([]);
-      setRecordedVideoUrl('');
-      setUploadedChunks(0);
-      setChunkHashes([]);
-      
-      const newSessionId = crypto.randomUUID();
-      setSessionId(newSessionId);
-      console.log('📝 New session ID:', newSessionId);
+    const mediaRecorder = new MediaRecorder(streamRef.current, options);
+    mediaRecorderRef.current = mediaRecorder;
 
-      const options = { mimeType: 'video/webm;codecs=vp8' };
-      const mediaRecorder = new MediaRecorder(streamRef.current, options);
-      mediaRecorderRef.current = mediaRecorder;
+    let chunkIndex = 0;
 
-      let chunkIndex = 0;
-
-      mediaRecorder.ondataavailable = async (event) => {
-        if (event.data && event.data.size > 0) {
-          const currentChunkIndex = chunkIndex++;
-          console.log(`📦 Chunk ${currentChunkIndex} received:`, event.data.size, 'bytes');
+    mediaRecorder.ondataavailable = async (event) => {
+      if (event.data && event.data.size > 0) {
+        const currentChunkIndex = chunkIndex++;
+        console.log(`📦 Chunk ${currentChunkIndex} received:`, event.data.size, 'bytes');
+        
+        setRecordedChunks(prev => [...prev, event.data]);
+        
+        try {
+          console.log(`🔐 Generating hash for chunk ${currentChunkIndex}...`);
+          const hash = await generateHash(event.data);
+          console.log(`🔐 Hash generated for chunk ${currentChunkIndex}:`, hash.substring(0, 16) + '...');
           
-          setRecordedChunks(prev => [...prev, event.data]);
+          setChunkHashes(prev => [...prev, { index: currentChunkIndex, hash }]);
           
-          try {
-            console.log(`🔐 Generating hash for chunk ${currentChunkIndex}...`);
-            const hash = await generateHash(event.data);
-            console.log(`🔐 Hash generated for chunk ${currentChunkIndex}:`, hash.substring(0, 16) + '...');
-            
-            setChunkHashes(prev => [...prev, { index: currentChunkIndex, hash }]);
-            
-            console.log(`📤 Uploading chunk ${currentChunkIndex} to database...`);
-            await uploadHashToDatabase(hash, currentChunkIndex, newSessionId);
-            
-          } catch (err) {
-            console.error(`Error processing chunk ${currentChunkIndex}:`, err);
-            setError(`Failed to process chunk ${currentChunkIndex}`);
-          }
+          console.log(`📤 Uploading chunk ${currentChunkIndex} to database...`);
+          await uploadHashToDatabase(hash, currentChunkIndex, newSessionId);
+          
+        } catch (err) {
+          console.error(`Error processing chunk ${currentChunkIndex}:`, err);
+          setError(`Failed to process chunk ${currentChunkIndex}`);
         }
-      };
+      }
+    };
 
-      mediaRecorder.onstop = () => {
-        console.log('⏹️ Recording stopped');
-        console.log(`📊 Total chunks: ${chunkIndex}`);
-      };
+    mediaRecorder.onstop = () => {
+      console.log('⏹️ Recording stopped');
+      console.log(`📊 Total chunks: ${chunkIndex}`);
+    };
 
-      mediaRecorder.start(5000);
-      setIsRecording(true);
-      console.log('🔴 Recording started (5-second chunks)');
+    mediaRecorder.start(5000);
+    setIsRecording(true);
+    console.log('🔴 Recording started (5-second chunks)');
 
-    } catch (err) {
-      console.error('Error starting recording:', err);
-      setError('Error starting recording: ' + err.message);
-    }
-  };
+  } catch (err) {
+    console.error('Error starting recording:', err);
+    setError('Error starting recording: ' + err.message);
+  }
+};
 
   // Stop recording
   const stopRecording = () => {
