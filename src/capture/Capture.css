@@ -1,0 +1,101 @@
+/* ---- RESET ---- */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #000;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  overscroll-behavior: none;
+}
+
+/* ---- SAFE AREA SUPPORT (iOS) ---- */
+:root {
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---- CAPTURE LAYOUT ---- */
+.capture-root {
+  height: 100dvh; /* dynamic viewport (mobile safe) */
+  display: flex;
+  flex-direction: column;
+  background: #000;
+}
+
+/* ---- CAMERA VIEW ---- */
+.capture-video {
+  flex: 1;
+  width: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+/* ---- CONTROLS ---- */
+.capture-controls {
+  padding: 16px;
+  padding-bottom: calc(16px + var(--safe-bottom));
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.85),
+    rgba(0,0,0,0.4),
+    rgba(0,0,0,0)
+  );
+}
+
+/* ---- BUTTON GRID ---- */
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* ---- BUTTONS ---- */
+button {
+  height: 56px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.05s ease, opacity 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+/* ---- BUTTON COLORS ---- */
+.btn-primary {
+  background: #ffffff;
+  color: #000;
+}
+
+.btn-danger {
+  background: #e53935;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #1e1e1e;
+  color: #fff;
+  border: 1px solid #333;
+}
+
+/* ---- SESSION ID ---- */
+.session-id {
+  color: #aaa;
+  font-size: 12px;
+  text-align: center;
+  word-break: break-all;
+  margin-top: 8px;
+}

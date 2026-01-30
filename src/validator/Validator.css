@@ -1,0 +1,116 @@
+/* ---- RESET ---- */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0b0b0b;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #fff;
+}
+
+/* ---- SAFE AREA SUPPORT ---- */
+:root {
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---- ROOT ---- */
+.validator-root {
+  min-height: 100dvh;
+  padding: 16px;
+  padding-bottom: calc(16px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* ---- CARD ---- */
+.validator-card {
+  max-width: 520px;
+  width: 100%;
+  margin: auto;
+  background: #121212;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* ---- HEADINGS ---- */
+.validator-title {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* ---- INPUTS ---- */
+input[type="text"],
+input[type="file"] {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+}
+
+input[type="text"] {
+  background: #1c1c1c;
+  color: #fff;
+}
+
+input[type="text"]:disabled {
+  background: #2a2a2a;
+  color: #aaa;
+}
+
+/* ---- BUTTON ---- */
+button {
+  width: 100%;
+  height: 56px;
+  border-radius: 14px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #ffffff;
+  color: #000;
+  transition: transform 0.05s ease, opacity 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+/* ---- STATUS ---- */
+.status {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.status-success {
+  color: #4caf50;
+}
+
+.status-warning {
+  color: #ffb300;
+}
+
+.status-error {
+  color: #ef5350;
+}
+
+/* ---- CONFIDENCE ---- */
+.confidence {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #aaa;
+}
