@@ -73,11 +73,11 @@ function FileHashUploader() {
         throw error;
       }
 
-      setMessage('✅ Success! Hash uploaded to database');
+      setMessage('Success! Hash uploaded to database');
 
     } catch (error) {
       console.error('Error:', error);
-      setMessage('❌ Error: ' + error.message);
+      setMessage('Error: ' + error.message);
     } finally {
       setIsProcessing(false);
     }
