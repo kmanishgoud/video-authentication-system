@@ -24,3 +24,15 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# ---- Media & archives ----
+*.zip
+*.mp4
+*.webm
+*.mov
+
+# ---- Common large folders ----
+samples test videos/
+Progress screen rec/
+recording-*/
+
